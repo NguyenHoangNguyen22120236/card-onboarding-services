@@ -1,0 +1,180 @@
+openapi: 3.0.3
+info:
+  title: Customer Management Service Internal API
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8081
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /internal/customers/register:
+    post:
+      operationId: registerCustomer
+      summary: Register customer
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterCustomerRequest"
+      responses:
+        "200":
+          description: Customer registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterCustomerResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /internal/customers/{customerId}:
+    get:
+      operationId: getCustomer
+      summary: Get customer by customer ID
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Customer found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegisterCustomerResponse"
+        "404":
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  parameters:
+    CorrelationIdHeader:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+
+    RegisterCustomerRequest:
+      type: object
+      required:
+        - correlationId
+        - customerId
+        - holderName
+        - email
+      properties:
+        correlationId:
+          type: string
+          example: corr-123
+        customerId:
+          type: string
+          example: CUST001
+        holderName:
+          type: string
+          example: Nguyen Van A
+        email:
+          type: string
+          format: email
+          example: a@example.com
+
+    RegisterCustomerResponse:
+      type: object
+      required:
+        - customerId
+        - coreCustomerId
+        - status
+        - registeredAt
+      properties:
+        customerId:
+          type: string
+          example: CUST001
+        coreCustomerId:
+          type: string
+          example: CORE-CUST001
+        status:
+          type: string
+          example: REGISTERED
+        registeredAt:
+          type: string
+          format: date-time
+          example: "2026-06-06T10:00:00Z"
+
+    ErrorDetail:
+      type: object
+      required:
+        - field
+        - issue
+      properties:
+        field:
+          type: string
+          example: customerId
+        issue:
+          type: string
+          example: customerId is required
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - correlationId
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: request validation failed
+        correlationId:
+          type: string
+          example: corr-123
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
