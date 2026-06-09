@@ -324,25 +324,25 @@ func WithBaseURL(baseURL string) ClientOption {
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
 	// GetHealthWithResponse request
-	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error)
+	GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthClientResponse, error)
 
 	// RegisterCustomerWithBodyWithResponse request with any body
-	RegisterCustomerWithBodyWithResponse(ctx context.Context, params *RegisterCustomerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterCustomerResponse, error)
+	RegisterCustomerWithBodyWithResponse(ctx context.Context, params *RegisterCustomerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterCustomerClientResponse, error)
 
-	RegisterCustomerWithResponse(ctx context.Context, params *RegisterCustomerParams, body RegisterCustomerJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterCustomerResponse, error)
+	RegisterCustomerWithResponse(ctx context.Context, params *RegisterCustomerParams, body RegisterCustomerJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterCustomerClientResponse, error)
 
 	// GetCustomerWithResponse request
-	GetCustomerWithResponse(ctx context.Context, customerId string, params *GetCustomerParams, reqEditors ...RequestEditorFn) (*GetCustomerResponse, error)
+	GetCustomerWithResponse(ctx context.Context, customerId string, params *GetCustomerParams, reqEditors ...RequestEditorFn) (*GetCustomerClientResponse, error)
 }
 
-type GetHealthResponse struct {
+type GetHealthClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *HealthResponse
 }
 
 // Status returns HTTPResponse.Status
-func (r GetHealthResponse) Status() string {
+func (r GetHealthClientResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -350,7 +350,7 @@ func (r GetHealthResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetHealthResponse) StatusCode() int {
+func (r GetHealthClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -358,14 +358,14 @@ func (r GetHealthResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetHealthResponse) ContentType() string {
+func (r GetHealthClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type RegisterCustomerResponse struct {
+type RegisterCustomerClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RegisterCustomerResponse
@@ -374,7 +374,7 @@ type RegisterCustomerResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r RegisterCustomerResponse) Status() string {
+func (r RegisterCustomerClientResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -382,7 +382,7 @@ func (r RegisterCustomerResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r RegisterCustomerResponse) StatusCode() int {
+func (r RegisterCustomerClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -390,14 +390,14 @@ func (r RegisterCustomerResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r RegisterCustomerResponse) ContentType() string {
+func (r RegisterCustomerClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-type GetCustomerResponse struct {
+type GetCustomerClientResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *RegisterCustomerResponse
@@ -406,7 +406,7 @@ type GetCustomerResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetCustomerResponse) Status() string {
+func (r GetCustomerClientResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -414,7 +414,7 @@ func (r GetCustomerResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetCustomerResponse) StatusCode() int {
+func (r GetCustomerClientResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -422,57 +422,57 @@ func (r GetCustomerResponse) StatusCode() int {
 }
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
-func (r GetCustomerResponse) ContentType() string {
+func (r GetCustomerClientResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
 	return ""
 }
 
-// GetHealthWithResponse request returning *GetHealthResponse
-func (c *ClientWithResponses) GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthResponse, error) {
+// GetHealthWithResponse request returning *GetHealthClientResponse
+func (c *ClientWithResponses) GetHealthWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetHealthClientResponse, error) {
 	rsp, err := c.GetHealth(ctx, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetHealthResponse(rsp)
+	return ParseGetHealthClientResponse(rsp)
 }
 
-// RegisterCustomerWithBodyWithResponse request with arbitrary body returning *RegisterCustomerResponse
-func (c *ClientWithResponses) RegisterCustomerWithBodyWithResponse(ctx context.Context, params *RegisterCustomerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterCustomerResponse, error) {
+// RegisterCustomerWithBodyWithResponse request with arbitrary body returning *RegisterCustomerClientResponse
+func (c *ClientWithResponses) RegisterCustomerWithBodyWithResponse(ctx context.Context, params *RegisterCustomerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RegisterCustomerClientResponse, error) {
 	rsp, err := c.RegisterCustomerWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRegisterCustomerResponse(rsp)
+	return ParseRegisterCustomerClientResponse(rsp)
 }
 
-func (c *ClientWithResponses) RegisterCustomerWithResponse(ctx context.Context, params *RegisterCustomerParams, body RegisterCustomerJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterCustomerResponse, error) {
+func (c *ClientWithResponses) RegisterCustomerWithResponse(ctx context.Context, params *RegisterCustomerParams, body RegisterCustomerJSONRequestBody, reqEditors ...RequestEditorFn) (*RegisterCustomerClientResponse, error) {
 	rsp, err := c.RegisterCustomer(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseRegisterCustomerResponse(rsp)
+	return ParseRegisterCustomerClientResponse(rsp)
 }
 
-// GetCustomerWithResponse request returning *GetCustomerResponse
-func (c *ClientWithResponses) GetCustomerWithResponse(ctx context.Context, customerId string, params *GetCustomerParams, reqEditors ...RequestEditorFn) (*GetCustomerResponse, error) {
+// GetCustomerWithResponse request returning *GetCustomerClientResponse
+func (c *ClientWithResponses) GetCustomerWithResponse(ctx context.Context, customerId string, params *GetCustomerParams, reqEditors ...RequestEditorFn) (*GetCustomerClientResponse, error) {
 	rsp, err := c.GetCustomer(ctx, customerId, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetCustomerResponse(rsp)
+	return ParseGetCustomerClientResponse(rsp)
 }
 
-// ParseGetHealthResponse parses an HTTP response from a GetHealthWithResponse call
-func ParseGetHealthResponse(rsp *http.Response) (*GetHealthResponse, error) {
+// ParseGetHealthClientResponse parses an HTTP response from a GetHealthWithResponse call
+func ParseGetHealthClientResponse(rsp *http.Response) (*GetHealthClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetHealthResponse{
+	response := &GetHealthClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -490,15 +490,15 @@ func ParseGetHealthResponse(rsp *http.Response) (*GetHealthResponse, error) {
 	return response, nil
 }
 
-// ParseRegisterCustomerResponse parses an HTTP response from a RegisterCustomerWithResponse call
-func ParseRegisterCustomerResponse(rsp *http.Response) (*RegisterCustomerResponse, error) {
+// ParseRegisterCustomerClientResponse parses an HTTP response from a RegisterCustomerWithResponse call
+func ParseRegisterCustomerClientResponse(rsp *http.Response) (*RegisterCustomerClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &RegisterCustomerResponse{
+	response := &RegisterCustomerClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -530,15 +530,15 @@ func ParseRegisterCustomerResponse(rsp *http.Response) (*RegisterCustomerRespons
 	return response, nil
 }
 
-// ParseGetCustomerResponse parses an HTTP response from a GetCustomerWithResponse call
-func ParseGetCustomerResponse(rsp *http.Response) (*GetCustomerResponse, error) {
+// ParseGetCustomerClientResponse parses an HTTP response from a GetCustomerWithResponse call
+func ParseGetCustomerClientResponse(rsp *http.Response) (*GetCustomerClientResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetCustomerResponse{
+	response := &GetCustomerClientResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

@@ -1,6 +1,7 @@
 package: customer
 output-options:
   skip-prune: true
+  response-type-suffix: ClientResponse
 generate:
   client: true
 output: pkg/customer/client.gen.go
