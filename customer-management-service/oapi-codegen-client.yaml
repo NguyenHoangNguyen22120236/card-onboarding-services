@@ -2,5 +2,5 @@ package: customer
 output-options:
   skip-prune: true
 generate:
-  models: true
-output: pkg/customer/types.gen.go
+  client: true
+output: pkg/customer/client.gen.go
