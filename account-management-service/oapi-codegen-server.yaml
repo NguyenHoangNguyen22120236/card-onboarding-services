@@ -1,0 +1,6 @@
+package: account
+output-options:
+  skip-prune: true
+generate:
+  gin-server: true
+output: pkg/account/server.gen.go

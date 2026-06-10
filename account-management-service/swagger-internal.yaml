@@ -1,0 +1,130 @@
+openapi: 3.0.3
+info:
+  title: Account Management Service Internal API
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8082
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /internal/accounts/{customerId}/interest-details:
+    get:
+      operationId: getInterestDetails
+      summary: Get account interest details by customer ID
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Interest details found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InterestDetailsResponse"
+        "404":
+          description: Interest details not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  parameters:
+    CorrelationIdHeader:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+
+    InterestDetailsResponse:
+      type: object
+      required:
+        - customerId
+        - productCode
+        - interestRate
+        - interestType
+        - currency
+      properties:
+        customerId:
+          type: string
+          example: CUST001
+        productCode:
+          type: string
+          example: SAVINGS_BASIC
+        interestRate:
+          type: number
+          format: double
+          example: 4.5
+        interestType:
+          type: string
+          example: VARIABLE
+        currency:
+          type: string
+          example: AUD
+
+    ErrorDetail:
+      type: object
+      required:
+        - field
+        - issue
+      properties:
+        field:
+          type: string
+          example: customerId
+        issue:
+          type: string
+          example: customerId is required
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - correlationId
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: request validation failed
+        correlationId:
+          type: string
+          example: corr-123
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorDetail"

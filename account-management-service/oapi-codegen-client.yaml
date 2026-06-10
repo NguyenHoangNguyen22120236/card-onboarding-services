@@ -1,0 +1,7 @@
+package: account
+output-options:
+  skip-prune: true
+  response-type-suffix: ClientResponse
+generate:
+  client: true
+output: pkg/account/client.gen.go

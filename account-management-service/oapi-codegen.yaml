@@ -1,0 +1,6 @@
+package: account
+output-options:
+  skip-prune: true
+generate:
+  models: true
+output: pkg/account/types.gen.go
