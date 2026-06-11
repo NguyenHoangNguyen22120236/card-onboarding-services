@@ -1,0 +1,6 @@
+package: onboard
+output-options:
+  skip-prune: true
+generate:
+  gin-server: true
+output: pkg/onboard/server.gen.go

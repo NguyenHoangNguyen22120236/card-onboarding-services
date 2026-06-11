@@ -1,0 +1,7 @@
+package: onboard
+output-options:
+  skip-prune: true
+  response-type-suffix: ClientResponse
+generate:
+  client: true
+output: pkg/onboard/client.gen.go

@@ -1,0 +1,237 @@
+openapi: 3.0.3
+info:
+  title: Onboard Service Internal API
+  version: 0.1.0
+
+servers:
+  - url: http://localhost:8083
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /internal/cards/onboard:
+    post:
+      operationId: onboardCard
+      summary: Onboard card
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardCardRequest"
+      responses:
+        "200":
+          description: Card onboarded successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardCardResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /internal/cards/{customerId}/status:
+    get:
+      operationId: getCardOnboardingStatus
+      summary: Get card onboarding status by customer ID
+      parameters:
+        - $ref: "#/components/parameters/CorrelationIdHeader"
+        - name: customerId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Card onboarding status found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CardOnboardingStatusResponse"
+        "404":
+          description: Card onboarding status not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal service error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  parameters:
+    CorrelationIdHeader:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema:
+        type: string
+
+  schemas:
+    HealthResponse:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          example: ok
+
+    OnboardCardRequest:
+      type: object
+      required:
+        - correlationId
+        - jobId
+        - recordId
+        - sourceFile
+        - rowNumber
+        - customerId
+        - cardType
+        - cardNumber
+        - expiryDate
+        - holderName
+        - email
+      properties:
+        correlationId:
+          type: string
+          example: corr-123
+        jobId:
+          type: string
+          example: job-123
+        recordId:
+          type: string
+          example: rec-123
+        sourceFile:
+          type: string
+          example: cards_20260611.csv
+        rowNumber:
+          type: integer
+          format: int32
+          example: 2
+        customerId:
+          type: string
+          example: CUST001
+        cardType:
+          type: string
+          example: DEBIT
+        cardNumber:
+          type: string
+          example: "4111111111111111"
+        expiryDate:
+          type: string
+          example: "12/28"
+        holderName:
+          type: string
+          example: Nguyen Van A
+        email:
+          type: string
+          format: email
+          example: a@example.com
+
+    OnboardCardResponse:
+      type: object
+      required:
+        - customerId
+        - coreCustomerId
+        - accountId
+        - cardId
+        - status
+      properties:
+        customerId:
+          type: string
+          example: CUST001
+        coreCustomerId:
+          type: string
+          example: CORE-CUST001
+        accountId:
+          type: string
+          example: ACC001
+        cardId:
+          type: string
+          example: CARD001
+        status:
+          type: string
+          example: ONBOARDED
+
+    CardOnboardingStatusResponse:
+      type: object
+      required:
+        - customerId
+        - overallStatus
+        - customerRegistrationStatus
+        - interestDetailsStatus
+        - accountOnboardingStatus
+      properties:
+        customerId:
+          type: string
+          example: CUST001
+        overallStatus:
+          type: string
+          example: COMPLETED
+        customerRegistrationStatus:
+          type: string
+          example: COMPLETED
+        interestDetailsStatus:
+          type: string
+          example: COMPLETED
+        accountOnboardingStatus:
+          type: string
+          example: COMPLETED
+
+    ErrorDetail:
+      type: object
+      required:
+        - field
+        - issue
+      properties:
+        field:
+          type: string
+          example: customerId
+        issue:
+          type: string
+          example: customerId is required
+
+    ErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+        - correlationId
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: request validation failed
+        correlationId:
+          type: string
+          example: corr-123
+        details:
+          type: array
+          items:
+            $ref: "#/components/schemas/ErrorDetail"
