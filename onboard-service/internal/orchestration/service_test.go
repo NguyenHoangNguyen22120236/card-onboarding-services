@@ -70,7 +70,7 @@ func TestOnboardCardSuccess(t *testing.T) {
 		t.Fatalf("GetByCustomerID() details error = %v", err)
 	}
 	if details.CoreCustomerID != "CORE-CUST001" ||
-		details.CustomerName != "" ||
+		details.CustomerName != "Alex Customer" ||
 		details.Email != "alex@example.com" ||
 		details.ProductCode != "SAVINGS_BASIC" ||
 		details.InterestRate != 4.5 ||
