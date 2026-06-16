@@ -79,8 +79,92 @@ func TestOnboardCardSuccess(t *testing.T) {
 		details.AccountID != "ACC-CUST001" ||
 		details.CardID != "CARD-CUST001-001" ||
 		details.CardType != "DEBIT" ||
-		details.CardNumberMasked != cardNumberMasked {
+		details.CardNumberMasked != "************1111" {
 		t.Fatalf("details = %#v, want persisted onboarding details", details)
+	}
+}
+
+func TestOnboardCardStoresMaskedRequestCardNumber(t *testing.T) {
+	statusStore := store.NewInMemoryRequestStatusStore()
+	detailsStore := store.NewInMemoryAccountDetailsStore()
+	customerClient := &fakeCustomerClient{
+		resp: customerapi.RegisterCustomerResponse{
+			CustomerId:     "CUST_MASK",
+			CoreCustomerId: "CORE-CUST_MASK",
+			Status:         "REGISTERED",
+			RegisteredAt:   time.Now().UTC(),
+		},
+	}
+	accountClient := &fakeAccountClient{
+		resp: accountapi.InterestDetailsResponse{
+			CustomerId:   "CUST_MASK",
+			ProductCode:  "SAVINGS_BASIC",
+			InterestRate: 4.5,
+			InterestType: "VARIABLE",
+			Currency:     "AUD",
+		},
+	}
+	service := NewService(statusStore, detailsStore, customerClient, accountClient)
+	req := testRequest("CUST_MASK")
+	req.CardNumber = "5555444433332222"
+
+	if _, err := service.OnboardCard(context.Background(), req); err != nil {
+		t.Fatalf("OnboardCard() error = %v, want nil", err)
+	}
+
+	details, err := detailsStore.GetByCustomerID(context.Background(), "CUST_MASK")
+	if err != nil {
+		t.Fatalf("GetByCustomerID() details error = %v", err)
+	}
+	if details.CardNumberMasked != "************2222" {
+		t.Fatalf("CardNumberMasked = %q, want %q", details.CardNumberMasked, "************2222")
+	}
+}
+
+func TestMaskCardNumber(t *testing.T) {
+	tests := []struct {
+		name       string
+		cardNumber string
+		want       string
+	}{
+		{
+			name:       "empty",
+			cardNumber: "",
+			want:       "",
+		},
+		{
+			name:       "shorter than four",
+			cardNumber: "123",
+			want:       "123",
+		},
+		{
+			name:       "exactly four",
+			cardNumber: "1234",
+			want:       "1234",
+		},
+		{
+			name:       "longer than four",
+			cardNumber: "12345",
+			want:       "*2345",
+		},
+		{
+			name:       "standard card number",
+			cardNumber: "4111111111111111",
+			want:       "************1111",
+		},
+		{
+			name:       "different last four",
+			cardNumber: "5555444433332222",
+			want:       "************2222",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := maskCardNumber(tt.cardNumber); got != tt.want {
+				t.Fatalf("maskCardNumber(%q) = %q, want %q", tt.cardNumber, got, tt.want)
+			}
+		})
 	}
 }
 

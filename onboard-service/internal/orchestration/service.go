@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	accountapi "github.com/NguyenHoangNguyen22120236/card-onboarding-services/account-management-service/pkg/account"
@@ -19,7 +20,6 @@ const (
 	customerRegistrationSuccessMessage = "Customer registered successfully"
 	interestDetailsSuccessMessage      = "Interest details fetched successfully"
 	accountOnboardingSuccessMessage    = "Account onboarded successfully"
-	cardNumberMasked                   = "************1111"
 )
 
 type Service interface {
@@ -204,7 +204,7 @@ func (s *service) onboardAccount(ctx context.Context, req entity.OnboardingReque
 	details.AccountID = "ACC-" + req.CustomerID
 	details.CardID = "CARD-" + req.CustomerID + "-001"
 	details.CardType = req.CardType
-	details.CardNumberMasked = cardNumberMasked
+	details.CardNumberMasked = maskCardNumber(req.CardNumber)
 	if err := s.upsertAccountDetails(ctx, details); err != nil {
 		return status, err
 	}
@@ -298,4 +298,12 @@ func buildResponse(details entity.AccountDetails, status entity.RequestStatus) a
 		CardId:         details.CardID,
 		Status:         string(status.OverallStatus),
 	}
+}
+
+func maskCardNumber(cardNumber string) string {
+	if len(cardNumber) <= 4 {
+		return cardNumber
+	}
+
+	return strings.Repeat("*", len(cardNumber)-4) + cardNumber[len(cardNumber)-4:]
 }
