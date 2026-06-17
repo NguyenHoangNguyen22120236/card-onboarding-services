@@ -1,0 +1,25 @@
+FROM golang:1.26 AS build
+
+WORKDIR /src
+
+ARG SERVICE_PATH
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o /out/service ./${SERVICE_PATH}
+
+FROM gcr.io/distroless/static-debian12:nonroot
+
+WORKDIR /app
+
+ARG SERVICE_PORT=8080
+ENV SERVER_ADDRESS=:${SERVICE_PORT}
+
+COPY --from=build /out/service /app/service
+
+EXPOSE ${SERVICE_PORT}
+
+USER nonroot:nonroot
+ENTRYPOINT ["/app/service"]
