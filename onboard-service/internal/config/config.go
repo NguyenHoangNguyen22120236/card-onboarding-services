@@ -18,6 +18,8 @@ type Config struct {
 	CustomerManagementBaseURL string
 	AccountManagementBaseURL  string
 	DownstreamTimeout         time.Duration
+	RequestStatusTableName    string
+	AccountDetailsTableName   string
 }
 
 func Load() Config {
@@ -26,6 +28,8 @@ func Load() Config {
 		CustomerManagementBaseURL: envOrDefault("CUSTOMER_MANAGEMENT_BASE_URL", defaultCustomerManagementBaseURL),
 		AccountManagementBaseURL:  envOrDefault("ACCOUNT_MANAGEMENT_BASE_URL", defaultAccountManagementBaseURL),
 		DownstreamTimeout:         durationEnvOrDefault("DOWNSTREAM_TIMEOUT", defaultDownstreamTimeout),
+		RequestStatusTableName:    strings.TrimSpace(os.Getenv("REQUEST_STATUS_TABLE_NAME")),
+		AccountDetailsTableName:   strings.TrimSpace(os.Getenv("ACCOUNT_DETAILS_TABLE_NAME")),
 	}
 }
 

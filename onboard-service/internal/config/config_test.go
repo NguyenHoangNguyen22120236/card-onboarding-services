@@ -20,6 +20,12 @@ func TestLoadReturnsDefaults(t *testing.T) {
 	if cfg.DownstreamTimeout != 5*time.Second {
 		t.Fatalf("DownstreamTimeout = %s, want %s", cfg.DownstreamTimeout, 5*time.Second)
 	}
+	if cfg.RequestStatusTableName != "" {
+		t.Fatalf("RequestStatusTableName = %q, want empty", cfg.RequestStatusTableName)
+	}
+	if cfg.AccountDetailsTableName != "" {
+		t.Fatalf("AccountDetailsTableName = %q, want empty", cfg.AccountDetailsTableName)
+	}
 }
 
 func TestLoadUsesServerAddress(t *testing.T) {
@@ -57,6 +63,8 @@ func TestLoadUsesDownstreamOverrides(t *testing.T) {
 	t.Setenv("CUSTOMER_MANAGEMENT_BASE_URL", "http://customer-service:9001")
 	t.Setenv("ACCOUNT_MANAGEMENT_BASE_URL", "http://account-service:9002")
 	t.Setenv("DOWNSTREAM_TIMEOUT", "250ms")
+	t.Setenv("REQUEST_STATUS_TABLE_NAME", "request-status")
+	t.Setenv("ACCOUNT_DETAILS_TABLE_NAME", "account-details")
 
 	cfg := Load()
 
@@ -68,6 +76,12 @@ func TestLoadUsesDownstreamOverrides(t *testing.T) {
 	}
 	if cfg.DownstreamTimeout != 250*time.Millisecond {
 		t.Fatalf("DownstreamTimeout = %s, want %s", cfg.DownstreamTimeout, 250*time.Millisecond)
+	}
+	if cfg.RequestStatusTableName != "request-status" {
+		t.Fatalf("RequestStatusTableName = %q, want %q", cfg.RequestStatusTableName, "request-status")
+	}
+	if cfg.AccountDetailsTableName != "account-details" {
+		t.Fatalf("AccountDetailsTableName = %q, want %q", cfg.AccountDetailsTableName, "account-details")
 	}
 }
 
