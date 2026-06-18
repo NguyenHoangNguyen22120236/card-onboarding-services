@@ -1,0 +1,468 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: ECS/Fargate service infrastructure for card-onboarding-services.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+    Description: Environment suffix used in service and DynamoDB table names.
+    AllowedPattern: "^[a-zA-Z0-9-]+$"
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC where the ECS services and load balancer run.
+
+  PublicSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnets for the load balancer and Fargate tasks.
+
+  DesiredCount:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    Description: Number of Fargate tasks to run for each service.
+
+  TaskCpu:
+    Type: String
+    Default: "256"
+    AllowedValues:
+      - "256"
+      - "512"
+      - "1024"
+      - "2048"
+      - "4096"
+    Description: CPU units for each Fargate task.
+
+  TaskMemory:
+    Type: String
+    Default: "512"
+    AllowedValues:
+      - "512"
+      - "1024"
+      - "2048"
+      - "3072"
+      - "4096"
+      - "5120"
+      - "6144"
+      - "7168"
+      - "8192"
+    Description: Memory in MiB for each Fargate task.
+
+  DownstreamTimeout:
+    Type: String
+    Default: 5s
+    Description: Timeout used by onboard-service when calling downstream services.
+
+  OnboardServiceImageUri:
+    Type: String
+    Description: Private ECR image URI for onboard-service.
+
+  CustomerManagementServiceImageUri:
+    Type: String
+    Description: Private ECR image URI for customer-management-service.
+
+  AccountManagementServiceImageUri:
+    Type: String
+    Description: Private ECR image URI for account-management-service.
+
+  OnboardServicePort:
+    Type: Number
+    Default: 8080
+
+  CustomerManagementServicePort:
+    Type: Number
+    Default: 8081
+
+  AccountManagementServicePort:
+    Type: Number
+    Default: 8082
+
+Resources:
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: !Sub card-onboarding-${EnvironmentName}
+
+  ServiceLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /ecs/card-onboarding-services/${EnvironmentName}
+      RetentionInDays: 14
+
+  LoadBalancerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub card-onboarding ALB ${EnvironmentName}
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref OnboardServicePort
+          ToPort: !Ref OnboardServicePort
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: !Ref CustomerManagementServicePort
+          ToPort: !Ref CustomerManagementServicePort
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: !Ref AccountManagementServicePort
+          ToPort: !Ref AccountManagementServicePort
+          CidrIp: 0.0.0.0/0
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  ServiceSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: !Sub card-onboarding ECS services ${EnvironmentName}
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: !Ref OnboardServicePort
+          ToPort: !Ref OnboardServicePort
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        - IpProtocol: tcp
+          FromPort: !Ref CustomerManagementServicePort
+          ToPort: !Ref CustomerManagementServicePort
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+        - IpProtocol: tcp
+          FromPort: !Ref AccountManagementServicePort
+          ToPort: !Ref AccountManagementServicePort
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub card-onboarding-${EnvironmentName}
+      Scheme: internet-facing
+      Type: application
+      SecurityGroups:
+        - !Ref LoadBalancerSecurityGroup
+      Subnets: !Ref PublicSubnetIds
+
+  OnboardTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub onboard-${EnvironmentName}
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: !Ref OnboardServicePort
+      TargetType: ip
+      HealthCheckPath: /health
+      Matcher:
+        HttpCode: "200"
+
+  CustomerManagementTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub customer-mgmt-${EnvironmentName}
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: !Ref CustomerManagementServicePort
+      TargetType: ip
+      HealthCheckPath: /health
+      Matcher:
+        HttpCode: "200"
+
+  AccountManagementTargetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties:
+      Name: !Sub account-mgmt-${EnvironmentName}
+      VpcId: !Ref VpcId
+      Protocol: HTTP
+      Port: !Ref AccountManagementServicePort
+      TargetType: ip
+      HealthCheckPath: /health
+      Matcher:
+        HttpCode: "200"
+
+  OnboardListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Protocol: HTTP
+      Port: !Ref OnboardServicePort
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref OnboardTargetGroup
+
+  CustomerManagementListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Protocol: HTTP
+      Port: !Ref CustomerManagementServicePort
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref CustomerManagementTargetGroup
+
+  AccountManagementListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Protocol: HTTP
+      Port: !Ref AccountManagementServicePort
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref AccountManagementTargetGroup
+
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub card-onboarding-ecs-execution-${EnvironmentName}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+
+  OnboardServiceTaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub onboard-service-task-${EnvironmentName}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub onboard-service-dynamodb-${EnvironmentName}
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                  - dynamodb:DescribeTable
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:Query
+                  - dynamodb:Scan
+                  - dynamodb:UpdateItem
+                Resource:
+                  - !GetAtt RequestStatusTable.Arn
+                  - !GetAtt AccountDetailsTable.Arn
+
+  RequestStatusTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub onboard-service-request-status-${EnvironmentName}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: customerId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  AccountDetailsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub onboard-service-account-details-${EnvironmentName}
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: customerId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: customerId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  CustomerManagementTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub customer-management-service-${EnvironmentName}
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: customer-management-service
+          Image: !Ref CustomerManagementServiceImageUri
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref CustomerManagementServicePort
+              Protocol: tcp
+          Environment:
+            - Name: SERVER_ADDRESS
+              Value: !Sub ":${CustomerManagementServicePort}"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ServiceLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: customer-management-service
+
+  AccountManagementTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub account-management-service-${EnvironmentName}
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      ContainerDefinitions:
+        - Name: account-management-service
+          Image: !Ref AccountManagementServiceImageUri
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref AccountManagementServicePort
+              Protocol: tcp
+          Environment:
+            - Name: SERVER_ADDRESS
+              Value: !Sub ":${AccountManagementServicePort}"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ServiceLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: account-management-service
+
+  OnboardTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub onboard-service-${EnvironmentName}
+      Cpu: !Ref TaskCpu
+      Memory: !Ref TaskMemory
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt OnboardServiceTaskRole.Arn
+      ContainerDefinitions:
+        - Name: onboard-service
+          Image: !Ref OnboardServiceImageUri
+          Essential: true
+          PortMappings:
+            - ContainerPort: !Ref OnboardServicePort
+              Protocol: tcp
+          Environment:
+            - Name: SERVER_ADDRESS
+              Value: !Sub ":${OnboardServicePort}"
+            - Name: CUSTOMER_MANAGEMENT_BASE_URL
+              Value: !Sub "http://${LoadBalancer.DNSName}:${CustomerManagementServicePort}"
+            - Name: ACCOUNT_MANAGEMENT_BASE_URL
+              Value: !Sub "http://${LoadBalancer.DNSName}:${AccountManagementServicePort}"
+            - Name: REQUEST_STATUS_TABLE_NAME
+              Value: !Ref RequestStatusTable
+            - Name: ACCOUNT_DETAILS_TABLE_NAME
+              Value: !Ref AccountDetailsTable
+            - Name: DOWNSTREAM_TIMEOUT
+              Value: !Ref DownstreamTimeout
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref ServiceLogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: onboard-service
+
+  CustomerManagementService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - CustomerManagementListener
+    Properties:
+      ServiceName: !Sub customer-management-service-${EnvironmentName}
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref CustomerManagementTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          Subnets: !Ref PublicSubnetIds
+      LoadBalancers:
+        - ContainerName: customer-management-service
+          ContainerPort: !Ref CustomerManagementServicePort
+          TargetGroupArn: !Ref CustomerManagementTargetGroup
+
+  AccountManagementService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - AccountManagementListener
+    Properties:
+      ServiceName: !Sub account-management-service-${EnvironmentName}
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref AccountManagementTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          Subnets: !Ref PublicSubnetIds
+      LoadBalancers:
+        - ContainerName: account-management-service
+          ContainerPort: !Ref AccountManagementServicePort
+          TargetGroupArn: !Ref AccountManagementTargetGroup
+
+  OnboardService:
+    Type: AWS::ECS::Service
+    DependsOn:
+      - OnboardListener
+      - CustomerManagementService
+      - AccountManagementService
+    Properties:
+      ServiceName: !Sub onboard-service-${EnvironmentName}
+      Cluster: !Ref Cluster
+      LaunchType: FARGATE
+      DesiredCount: !Ref DesiredCount
+      TaskDefinition: !Ref OnboardTaskDefinition
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups:
+            - !Ref ServiceSecurityGroup
+          Subnets: !Ref PublicSubnetIds
+      LoadBalancers:
+        - ContainerName: onboard-service
+          ContainerPort: !Ref OnboardServicePort
+          TargetGroupArn: !Ref OnboardTargetGroup
+
+Outputs:
+  ClusterName:
+    Description: ECS cluster for card-onboarding-services.
+    Value: !Ref Cluster
+
+  LoadBalancerDNSName:
+    Description: Public DNS name for the shared application load balancer.
+    Value: !GetAtt LoadBalancer.DNSName
+
+  OnboardServiceUrl:
+    Description: Public URL for onboard-service.
+    Value: !Sub "http://${LoadBalancer.DNSName}:${OnboardServicePort}"
+
+  CustomerManagementServiceUrl:
+    Description: Public URL for customer-management-service.
+    Value: !Sub "http://${LoadBalancer.DNSName}:${CustomerManagementServicePort}"
+
+  AccountManagementServiceUrl:
+    Description: Public URL for account-management-service.
+    Value: !Sub "http://${LoadBalancer.DNSName}:${AccountManagementServicePort}"
+
+  RequestStatusTableName:
+    Description: DynamoDB table used by onboard-service for request status.
+    Value: !Ref RequestStatusTable
+
+  AccountDetailsTableName:
+    Description: DynamoDB table used by onboard-service for account details.
+    Value: !Ref AccountDetailsTable
