@@ -1,0 +1,244 @@
+{
+  "title": "Card Onboarding Services",
+  "description": "Operational dashboard for onboard-service, customer-management-service, and account-management-service.",
+  "layout_type": "ordered",
+  "template_variables": [
+    {
+      "name": "env",
+      "prefix": "env",
+      "default": "dev"
+    }
+  ],
+  "widgets": [
+    {
+      "definition": {
+        "type": "group",
+        "title": "Onboard Service",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Onboard-Service Request Rate",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "name": "request_rate",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.onboard.requests{env:$env}.as_rate()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "request_rate"
+                    }
+                  ],
+                  "display_type": "line"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Onboard-Service Latency",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "name": "p95_latency",
+                      "data_source": "metrics",
+                      "query": "p95:card_onboarding.onboard.request.latency_ms{env:$env}"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "p95_latency"
+                    }
+                  ],
+                  "display_type": "line"
+                }
+              ],
+              "yaxis": {
+                "label": "milliseconds"
+              }
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Onboarding Completed Count",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "name": "completed",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.onboard.completed{env:$env}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "completed"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Onboarding Failed Count",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "name": "failed",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.onboard.failed{env:$env}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "failed"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "title": "Downstream Steps",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Customer Registration Success / Failure",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "name": "success",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.onboard.customer_registration.success{env:$env}.as_count()"
+                    },
+                    {
+                      "name": "failure",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.onboard.customer_registration.failure{env:$env}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "success"
+                    },
+                    {
+                      "formula": "failure"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          },
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "Interest Details Success / Failure",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "name": "success",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.onboard.interest_details.success{env:$env}.as_count()"
+                    },
+                    {
+                      "name": "failure",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.onboard.interest_details.failure{env:$env}.as_count()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "success"
+                    },
+                    {
+                      "formula": "failure"
+                    }
+                  ],
+                  "display_type": "bars"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "definition": {
+        "type": "group",
+        "title": "Service 5xx",
+        "layout_type": "ordered",
+        "widgets": [
+          {
+            "definition": {
+              "type": "timeseries",
+              "title": "HTTP 5xx Rate By Service",
+              "requests": [
+                {
+                  "response_format": "timeseries",
+                  "queries": [
+                    {
+                      "name": "onboard_5xx",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.onboard.http.requests{env:$env,status_class:5xx}.as_rate()"
+                    },
+                    {
+                      "name": "customer_5xx",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.customer_management.http.requests{env:$env,status_class:5xx}.as_rate()"
+                    },
+                    {
+                      "name": "account_5xx",
+                      "data_source": "metrics",
+                      "query": "sum:card_onboarding.account_management.http.requests{env:$env,status_class:5xx}.as_rate()"
+                    }
+                  ],
+                  "formulas": [
+                    {
+                      "formula": "onboard_5xx"
+                    },
+                    {
+                      "formula": "customer_5xx"
+                    },
+                    {
+                      "formula": "account_5xx"
+                    }
+                  ],
+                  "display_type": "line"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

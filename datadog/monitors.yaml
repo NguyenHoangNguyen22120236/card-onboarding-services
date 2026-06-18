@@ -1,0 +1,83 @@
+monitors:
+  - name: "Onboard-service 5xx rate above 5 percent"
+    type: "query alert"
+    query: >
+      sum(last_10m):sum:card_onboarding.onboard.http.requests{status_class:5xx}.as_count() /
+      sum:card_onboarding.onboard.http.requests{*}.as_count() > 0.05
+    message: >
+      onboard-service is returning more than 5 percent 5xx responses over 10 minutes.
+    tags:
+      - "project:card-onboarding"
+      - "repo:card-onboarding-services"
+      - "service:onboard-service"
+    options:
+      thresholds:
+        critical: 0.05
+      notify_no_data: false
+      include_tags: true
+
+  - name: "Customer-management-service 5xx rate above 5 percent"
+    type: "query alert"
+    query: >
+      sum(last_10m):sum:card_onboarding.customer_management.http.requests{status_class:5xx}.as_count() /
+      sum:card_onboarding.customer_management.http.requests{*}.as_count() > 0.05
+    message: >
+      customer-management-service is returning more than 5 percent 5xx responses over 10 minutes.
+    tags:
+      - "project:card-onboarding"
+      - "repo:card-onboarding-services"
+      - "service:customer-management-service"
+    options:
+      thresholds:
+        critical: 0.05
+      notify_no_data: false
+      include_tags: true
+
+  - name: "Account-management-service 5xx rate above 5 percent"
+    type: "query alert"
+    query: >
+      sum(last_10m):sum:card_onboarding.account_management.http.requests{status_class:5xx}.as_count() /
+      sum:card_onboarding.account_management.http.requests{*}.as_count() > 0.05
+    message: >
+      account-management-service is returning more than 5 percent 5xx responses over 10 minutes.
+    tags:
+      - "project:card-onboarding"
+      - "repo:card-onboarding-services"
+      - "service:account-management-service"
+    options:
+      thresholds:
+        critical: 0.05
+      notify_no_data: false
+      include_tags: true
+
+  - name: "Onboard-service p95 latency above 1000ms"
+    type: "query alert"
+    query: >
+      avg(last_10m):p95:card_onboarding.onboard.request.latency_ms{service:onboard-service} > 1000
+    message: >
+      onboard-service p95 request latency is above 1000ms for 10 minutes.
+    tags:
+      - "project:card-onboarding"
+      - "repo:card-onboarding-services"
+      - "service:onboard-service"
+    options:
+      thresholds:
+        critical: 1000
+      notify_no_data: false
+      include_tags: true
+
+  - name: "Onboard-service DB write failure"
+    type: "query alert"
+    query: >
+      sum(last_5m):sum:card_onboarding.onboard.db.write.failure{service:onboard-service}.as_count() > 0
+    message: >
+      onboard-service has DynamoDB write failures. Check request status and account details table writes.
+    tags:
+      - "project:card-onboarding"
+      - "repo:card-onboarding-services"
+      - "service:onboard-service"
+    options:
+      thresholds:
+        critical: 0
+      notify_no_data: false
+      include_tags: true
