@@ -1,27 +1,48 @@
 env:
   GO_VERSION: "1.26"
 
-agents:
-  queue: "windows"
-
 steps:
   - label: ":golang: lint"
     key: "lint"
     command: "make lint"
+    plugins:
+      - docker#v5.13.0:
+          image: "golang:${GO_VERSION}"
+          workdir: /workdir
+          volumes:
+            - ".:/workdir"
 
   - label: ":openapi: swagger validation"
     key: "swagger-validate"
     command: "go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest && make swagger-validate"
+    plugins:
+      - docker#v5.13.0:
+          image: "golang:${GO_VERSION}"
+          workdir: /workdir
+          volumes:
+            - ".:/workdir"
 
   - label: ":openapi: generation check"
     key: "generate-check"
     command: "go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest && make generate-check"
     depends_on: "swagger-validate"
+    plugins:
+      - docker#v5.13.0:
+          image: "golang:${GO_VERSION}"
+          workdir: /workdir
+          volumes:
+            - ".:/workdir"
 
   - label: ":test_tube: tests"
     key: "test"
     command: "make test"
     depends_on: "lint"
+    plugins:
+      - docker#v5.13.0:
+          image: "golang:${GO_VERSION}"
+          workdir: /workdir
+          volumes:
+            - ".:/workdir"
 
   - label: ":bar_chart: coverage"
     key: "coverage"
@@ -29,6 +50,12 @@ steps:
     depends_on: "test"
     artifact_paths:
       - "coverage.out"
+    plugins:
+      - docker#v5.13.0:
+          image: "golang:${GO_VERSION}"
+          workdir: /workdir
+          volumes:
+            - ".:/workdir"
 
   - label: ":hammer: build"
     key: "build"
@@ -38,6 +65,12 @@ steps:
       - "test"
     artifact_paths:
       - "bin/*"
+    plugins:
+      - docker#v5.13.0:
+          image: "golang:${GO_VERSION}"
+          workdir: /workdir
+          volumes:
+            - ".:/workdir"
 
   - wait
 
