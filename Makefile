@@ -12,6 +12,17 @@ ENVIRONMENT_NAME ?= prod
 STACK_NAME ?= card-onboarding-services-$(ENVIRONMENT_NAME)
 VPC_ID ?=
 PUBLIC_SUBNET_IDS ?=
+ifeq ($(OS),Windows_NT)
+NULL_DEVICE ?= NUL
+RM_RF = if exist "$(1)" rmdir /S /Q "$(1)"
+RM_FILE = if exist "$(1)" del /Q "$(1)"
+else
+NULL_DEVICE ?= /dev/null
+RM_RF = rm -rf "$(1)"
+RM_FILE = rm -f "$(1)"
+endif
+
+require = $(if $(strip $($(1))),,$(error $(1) is required))
 
 SERVICES := account-management-service customer-management-service onboard-service
 SWAGGER_FILES := $(addsuffix /swagger-internal.yaml,$(SERVICES))
@@ -37,19 +48,18 @@ help:
 	@echo "  deploy-production - Build, push, and deploy production"
 
 lint:
-	@test -z "$$(gofmt -l .)"
+	$(if $(strip $(shell gofmt -l .)),$(error gofmt changes are required),)
 	$(GO) vet ./...
 
 generate:
-	@for service in $(SERVICES); do \
-		$(MAKE) -C $$service generate; \
-	done
+	$(MAKE) -C account-management-service generate
+	$(MAKE) -C customer-management-service generate
+	$(MAKE) -C onboard-service generate
 
 swagger-validate:
-	@for spec in $(SWAGGER_FILES); do \
-		echo "Validating $$spec"; \
-		$(OAPI_CODEGEN) -generate types -package validate "$$spec" >/dev/null; \
-	done
+	$(OAPI_CODEGEN) -generate types -package validate -o $(NULL_DEVICE) account-management-service/swagger-internal.yaml
+	$(OAPI_CODEGEN) -generate types -package validate -o $(NULL_DEVICE) customer-management-service/swagger-internal.yaml
+	$(OAPI_CODEGEN) -generate types -package validate -o $(NULL_DEVICE) onboard-service/swagger-internal.yaml
 
 generate-check: generate
 	git diff --exit-code -- $(GENERATED_DIRS)
@@ -72,17 +82,17 @@ docker-build:
 	$(DOCKER) build --build-arg SERVICE_PATH=onboard-service --build-arg SERVICE_PORT=8080 -t $(IMAGE_PREFIX)/onboard-service:latest -f Dockerfile.service .
 
 ensure-ecr-repositories:
-	@test -n "$(AWS_ACCOUNT_ID)" || (echo "AWS_ACCOUNT_ID is required" && exit 1)
-	$(AWS) ecr describe-repositories --region $(AWS_REGION) --repository-names account-management-service >/dev/null 2>&1 || $(AWS) ecr create-repository --region $(AWS_REGION) --repository-name account-management-service
-	$(AWS) ecr describe-repositories --region $(AWS_REGION) --repository-names customer-management-service >/dev/null 2>&1 || $(AWS) ecr create-repository --region $(AWS_REGION) --repository-name customer-management-service
-	$(AWS) ecr describe-repositories --region $(AWS_REGION) --repository-names onboard-service >/dev/null 2>&1 || $(AWS) ecr create-repository --region $(AWS_REGION) --repository-name onboard-service
+	$(call require,AWS_ACCOUNT_ID)
+	$(AWS) ecr describe-repositories --region $(AWS_REGION) --repository-names account-management-service >$(NULL_DEVICE) 2>&1 || $(AWS) ecr create-repository --region $(AWS_REGION) --repository-name account-management-service
+	$(AWS) ecr describe-repositories --region $(AWS_REGION) --repository-names customer-management-service >$(NULL_DEVICE) 2>&1 || $(AWS) ecr create-repository --region $(AWS_REGION) --repository-name customer-management-service
+	$(AWS) ecr describe-repositories --region $(AWS_REGION) --repository-names onboard-service >$(NULL_DEVICE) 2>&1 || $(AWS) ecr create-repository --region $(AWS_REGION) --repository-name onboard-service
 
 ecr-login:
-	@test -n "$(AWS_ACCOUNT_ID)" || (echo "AWS_ACCOUNT_ID is required" && exit 1)
+	$(call require,AWS_ACCOUNT_ID)
 	$(AWS) ecr get-login-password --region $(AWS_REGION) | $(DOCKER) login --username AWS --password-stdin $(ECR_REGISTRY)
 
 docker-tag:
-	@test -n "$(AWS_ACCOUNT_ID)" || (echo "AWS_ACCOUNT_ID is required" && exit 1)
+	$(call require,AWS_ACCOUNT_ID)
 	$(DOCKER) tag $(IMAGE_PREFIX)/account-management-service:latest $(ACCOUNT_MANAGEMENT_IMAGE_URI)
 	$(DOCKER) tag $(IMAGE_PREFIX)/customer-management-service:latest $(CUSTOMER_MANAGEMENT_IMAGE_URI)
 	$(DOCKER) tag $(IMAGE_PREFIX)/onboard-service:latest $(ONBOARD_SERVICE_IMAGE_URI)
@@ -93,20 +103,9 @@ docker-push: ensure-ecr-repositories ecr-login docker-tag
 	$(DOCKER) push $(ONBOARD_SERVICE_IMAGE_URI)
 
 deploy-infra:
-	@test -n "$(VPC_ID)" || (echo "VPC_ID is required" && exit 1)
-	@test -n "$(PUBLIC_SUBNET_IDS)" || (echo "PUBLIC_SUBNET_IDS is required" && exit 1)
-	$(AWS) cloudformation deploy \
-		--region $(AWS_REGION) \
-		--template-file infra/cloudformation.yaml \
-		--stack-name $(STACK_NAME) \
-		--capabilities CAPABILITY_NAMED_IAM \
-		--parameter-overrides \
-			EnvironmentName=$(ENVIRONMENT_NAME) \
-			VpcId=$(VPC_ID) \
-			PublicSubnetIds=$(PUBLIC_SUBNET_IDS) \
-			OnboardServiceImageUri=$(ONBOARD_SERVICE_IMAGE_URI) \
-			CustomerManagementServiceImageUri=$(CUSTOMER_MANAGEMENT_IMAGE_URI) \
-			AccountManagementServiceImageUri=$(ACCOUNT_MANAGEMENT_IMAGE_URI)
+	$(call require,VPC_ID)
+	$(call require,PUBLIC_SUBNET_IDS)
+	$(AWS) cloudformation deploy --region $(AWS_REGION) --template-file infra/cloudformation.yaml --stack-name $(STACK_NAME) --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentName=$(ENVIRONMENT_NAME) VpcId=$(VPC_ID) PublicSubnetIds=$(PUBLIC_SUBNET_IDS) OnboardServiceImageUri=$(ONBOARD_SERVICE_IMAGE_URI) CustomerManagementServiceImageUri=$(CUSTOMER_MANAGEMENT_IMAGE_URI) AccountManagementServiceImageUri=$(ACCOUNT_MANAGEMENT_IMAGE_URI)
 
 deploy-production:
 	$(MAKE) docker-build
@@ -115,4 +114,5 @@ deploy-production:
 
 clean:
 	$(GO) clean
-	rm -rf $(BIN_DIR) coverage.out
+	$(call RM_RF,$(BIN_DIR))
+	$(call RM_FILE,coverage.out)
