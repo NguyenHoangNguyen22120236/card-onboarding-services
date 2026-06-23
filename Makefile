@@ -31,7 +31,7 @@ ACCOUNT_MANAGEMENT_IMAGE_URI := $(ECR_REGISTRY)/account-management-service:$(IMA
 CUSTOMER_MANAGEMENT_IMAGE_URI := $(ECR_REGISTRY)/customer-management-service:$(IMAGE_TAG)
 ONBOARD_SERVICE_IMAGE_URI := $(ECR_REGISTRY)/onboard-service:$(IMAGE_TAG)
 
-.PHONY: help lint generate swagger-validate generate-check test coverage build docker-build ensure-ecr-repositories ecr-login docker-tag docker-push deploy-infra deploy-production clean
+.PHONY: help lint generate swagger-validate generate-check test coverage build docker-build docker-build-push ensure-ecr-repositories ecr-login docker-tag docker-push deploy-infra deploy-production clean
 
 help:
 	@echo "Available targets:"
@@ -43,7 +43,7 @@ help:
 	@echo "  coverage          - Run tests with coverage output"
 	@echo "  build             - Build all service binaries"
 	@echo "  docker-build      - Build Docker images for all services"
-	@echo "  docker-push       - Tag and push Docker images to ECR"
+	@echo "  docker-push       - Build and push Docker images to ECR"
 	@echo "  deploy-infra      - Deploy the CloudFormation stack"
 	@echo "  deploy-production - Build, push, and deploy production"
 
@@ -81,6 +81,12 @@ docker-build:
 	$(DOCKER) build --build-arg SERVICE_PATH=customer-management-service --build-arg SERVICE_PORT=8081 -t $(IMAGE_PREFIX)/customer-management-service:latest -f Dockerfile.service .
 	$(DOCKER) build --build-arg SERVICE_PATH=onboard-service --build-arg SERVICE_PORT=8080 -t $(IMAGE_PREFIX)/onboard-service:latest -f Dockerfile.service .
 
+docker-build-push:
+	$(call require,AWS_ACCOUNT_ID)
+	$(DOCKER) buildx build --push --build-arg SERVICE_PATH=account-management-service --build-arg SERVICE_PORT=8082 -t $(ACCOUNT_MANAGEMENT_IMAGE_URI) -f Dockerfile.service .
+	$(DOCKER) buildx build --push --build-arg SERVICE_PATH=customer-management-service --build-arg SERVICE_PORT=8081 -t $(CUSTOMER_MANAGEMENT_IMAGE_URI) -f Dockerfile.service .
+	$(DOCKER) buildx build --push --build-arg SERVICE_PATH=onboard-service --build-arg SERVICE_PORT=8080 -t $(ONBOARD_SERVICE_IMAGE_URI) -f Dockerfile.service .
+
 ensure-ecr-repositories:
 	$(call require,AWS_ACCOUNT_ID)
 	$(AWS) ecr describe-repositories --region $(AWS_REGION) --repository-names account-management-service >$(NULL_DEVICE) 2>&1 || $(AWS) ecr create-repository --region $(AWS_REGION) --repository-name account-management-service
@@ -97,10 +103,7 @@ docker-tag: docker-build
 	$(DOCKER) tag $(IMAGE_PREFIX)/customer-management-service:latest $(CUSTOMER_MANAGEMENT_IMAGE_URI)
 	$(DOCKER) tag $(IMAGE_PREFIX)/onboard-service:latest $(ONBOARD_SERVICE_IMAGE_URI)
 
-docker-push: ensure-ecr-repositories ecr-login docker-tag
-	$(DOCKER) push $(ACCOUNT_MANAGEMENT_IMAGE_URI)
-	$(DOCKER) push $(CUSTOMER_MANAGEMENT_IMAGE_URI)
-	$(DOCKER) push $(ONBOARD_SERVICE_IMAGE_URI)
+docker-push: ensure-ecr-repositories ecr-login docker-build-push
 
 deploy-infra:
 	$(call require,VPC_ID)
