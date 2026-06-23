@@ -12,14 +12,17 @@ ENVIRONMENT_NAME ?= prod
 STACK_NAME ?= card-onboarding-services-$(ENVIRONMENT_NAME)
 VPC_ID ?=
 PUBLIC_SUBNET_IDS ?=
+DESCRIBE_STACK_EVENTS = $(AWS) cloudformation describe-stack-events --region $(AWS_REGION) --stack-name $(STACK_NAME) --max-items 20 --query "StackEvents[?ResourceStatusReason != null].[Timestamp,LogicalResourceId,ResourceStatus,ResourceStatusReason]" --output table
 ifeq ($(OS),Windows_NT)
 NULL_DEVICE ?= NUL
 RM_RF = if exist "$(1)" rmdir /S /Q "$(1)"
 RM_FILE = if exist "$(1)" del /Q "$(1)"
+DEPLOY_INFRA_ON_FAILURE = || ($(DESCRIBE_STACK_EVENTS) & exit /B 1)
 else
 NULL_DEVICE ?= /dev/null
 RM_RF = rm -rf "$(1)"
 RM_FILE = rm -f "$(1)"
+DEPLOY_INFRA_ON_FAILURE = || { status=$$?; $(DESCRIBE_STACK_EVENTS) || true; exit $$status; }
 endif
 
 require = $(if $(strip $($(1))),,$(error $(1) is required))
@@ -31,7 +34,7 @@ ACCOUNT_MANAGEMENT_IMAGE_URI := $(ECR_REGISTRY)/account-management-service:$(IMA
 CUSTOMER_MANAGEMENT_IMAGE_URI := $(ECR_REGISTRY)/customer-management-service:$(IMAGE_TAG)
 ONBOARD_SERVICE_IMAGE_URI := $(ECR_REGISTRY)/onboard-service:$(IMAGE_TAG)
 
-.PHONY: help lint generate swagger-validate generate-check test coverage build docker-build docker-build-push ensure-ecr-repositories ecr-login docker-tag docker-push deploy-infra deploy-production clean
+.PHONY: help lint generate swagger-validate generate-check test coverage build docker-build docker-build-push ensure-ecr-repositories ecr-login docker-tag docker-push describe-stack-events deploy-infra deploy-production clean
 
 help:
 	@echo "Available targets:"
@@ -105,10 +108,13 @@ docker-tag: docker-build
 
 docker-push: ensure-ecr-repositories ecr-login docker-build-push
 
+describe-stack-events:
+	-$(DESCRIBE_STACK_EVENTS)
+
 deploy-infra:
 	$(call require,VPC_ID)
 	$(call require,PUBLIC_SUBNET_IDS)
-	$(AWS) cloudformation deploy --region $(AWS_REGION) --template-file infra/cloudformation.yaml --stack-name $(STACK_NAME) --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentName=$(ENVIRONMENT_NAME) VpcId=$(VPC_ID) PublicSubnetIds=$(PUBLIC_SUBNET_IDS) OnboardServiceImageUri=$(ONBOARD_SERVICE_IMAGE_URI) CustomerManagementServiceImageUri=$(CUSTOMER_MANAGEMENT_IMAGE_URI) AccountManagementServiceImageUri=$(ACCOUNT_MANAGEMENT_IMAGE_URI)
+	$(AWS) cloudformation deploy --region $(AWS_REGION) --template-file infra/cloudformation.yaml --stack-name $(STACK_NAME) --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset --parameter-overrides EnvironmentName=$(ENVIRONMENT_NAME) VpcId=$(VPC_ID) PublicSubnetIds=$(PUBLIC_SUBNET_IDS) OnboardServiceImageUri=$(ONBOARD_SERVICE_IMAGE_URI) CustomerManagementServiceImageUri=$(CUSTOMER_MANAGEMENT_IMAGE_URI) AccountManagementServiceImageUri=$(ACCOUNT_MANAGEMENT_IMAGE_URI) $(DEPLOY_INFRA_ON_FAILURE)
 
 deploy-production:
 	$(MAKE) docker-push
