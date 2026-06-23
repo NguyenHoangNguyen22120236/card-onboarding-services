@@ -1,5 +1,8 @@
 env:
   GO_VERSION: "1.26"
+  AWS_REGION: "ap-southeast-1"
+  AWS_DEFAULT_REGION: "ap-southeast-1"
+  ENVIRONMENT_NAME: "prod"
 
 steps:
   - label: ":golang: lint"
@@ -81,6 +84,16 @@ steps:
 
   - label: ":rocket: deploy production"
     key: "deploy-production"
-    command: "make deploy-production"
+    command: |
+      set -euo pipefail
+
+      : "$${AWS_ACCESS_KEY_ID:?AWS_ACCESS_KEY_ID must be set in Buildkite secrets}"
+      : "$${AWS_SECRET_ACCESS_KEY:?AWS_SECRET_ACCESS_KEY must be set in Buildkite secrets}"
+      : "$${AWS_ACCOUNT_ID:?AWS_ACCOUNT_ID must be set in Buildkite environment/secrets}"
+      : "$${VPC_ID:?VPC_ID must be set in Buildkite environment/secrets}"
+      : "$${PUBLIC_SUBNET_IDS:?PUBLIC_SUBNET_IDS must be set in Buildkite environment/secrets}"
+
+      aws sts get-caller-identity
+      make deploy-production
     depends_on: "docker-build"
     branches: "main"
