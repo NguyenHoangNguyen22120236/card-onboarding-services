@@ -97,3 +97,11 @@ steps:
       make deploy-production
     depends_on: "docker-build"
     branches: "main"
+    secrets:
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_ACCOUNT_ID
+      - AWS_REGION
+      - AWS_DEFAULT_REGION
+      - VPC_ID
+      - PUBLIC_SUBNET_IDS
