@@ -103,5 +103,3 @@ steps:
       - AWS_ACCOUNT_ID
       - AWS_REGION
       - AWS_DEFAULT_REGION
-      - VPC_ID
-      - PUBLIC_SUBNET_IDS
