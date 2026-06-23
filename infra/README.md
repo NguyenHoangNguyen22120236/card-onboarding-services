@@ -85,6 +85,13 @@ Optional variables:
 
 `PUBLIC_SUBNET_IDS` should be a comma-separated list, for example `subnet-aaaaaaaa,subnet-bbbbbbbb`.
 
+The deployment Make targets validate that the configured VPC and subnets exist in `AWS_REGION` before starting CloudFormation. If a first deploy fails during stack creation, CloudFormation can leave the stack in `ROLLBACK_COMPLETE`; that state cannot be updated. Delete the failed stack record, fix the VPC/subnet CI variables, then rerun the deployment:
+
+```sh
+aws cloudformation delete-stack --region ap-southeast-1 --stack-name card-onboarding-services-prod
+aws cloudformation wait stack-delete-complete --region ap-southeast-1 --stack-name card-onboarding-services-prod
+```
+
 You can also run the same deployment manually:
 
 Example:

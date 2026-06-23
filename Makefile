@@ -12,6 +12,9 @@ ENVIRONMENT_NAME ?= prod
 STACK_NAME ?= card-onboarding-services-$(ENVIRONMENT_NAME)
 VPC_ID ?=
 PUBLIC_SUBNET_IDS ?=
+comma := ,
+empty :=
+space := $(empty) $(empty)
 DESCRIBE_STACK_EVENTS = $(AWS) cloudformation describe-stack-events --region $(AWS_REGION) --stack-name $(STACK_NAME) --max-items 20 --query "StackEvents[?ResourceStatusReason != null].[Timestamp,LogicalResourceId,ResourceStatus,ResourceStatusReason]" --output table
 ifeq ($(OS),Windows_NT)
 NULL_DEVICE ?= NUL
@@ -34,7 +37,7 @@ ACCOUNT_MANAGEMENT_IMAGE_URI := $(ECR_REGISTRY)/account-management-service:$(IMA
 CUSTOMER_MANAGEMENT_IMAGE_URI := $(ECR_REGISTRY)/customer-management-service:$(IMAGE_TAG)
 ONBOARD_SERVICE_IMAGE_URI := $(ECR_REGISTRY)/onboard-service:$(IMAGE_TAG)
 
-.PHONY: help lint generate swagger-validate generate-check test coverage build docker-build docker-build-push ensure-ecr-repositories ecr-login docker-tag docker-push describe-stack-events deploy-infra deploy-production clean
+.PHONY: help lint generate swagger-validate generate-check test coverage build docker-build docker-build-push ensure-ecr-repositories ecr-login docker-tag docker-push describe-stack-events validate-network-parameters deploy-infra deploy-production clean
 
 help:
 	@echo "Available targets:"
@@ -47,6 +50,7 @@ help:
 	@echo "  build             - Build all service binaries"
 	@echo "  docker-build      - Build Docker images for all services"
 	@echo "  docker-push       - Build and push Docker images to ECR"
+	@echo "  validate-network-parameters - Verify deploy VPC/subnet parameters exist"
 	@echo "  deploy-infra      - Deploy the CloudFormation stack"
 	@echo "  deploy-production - Build, push, and deploy production"
 
@@ -111,12 +115,16 @@ docker-push: ensure-ecr-repositories ecr-login docker-build-push
 describe-stack-events:
 	-$(DESCRIBE_STACK_EVENTS)
 
-deploy-infra:
+validate-network-parameters:
 	$(call require,VPC_ID)
 	$(call require,PUBLIC_SUBNET_IDS)
+	$(AWS) ec2 describe-vpcs --region $(AWS_REGION) --vpc-ids $(VPC_ID) >$(NULL_DEVICE)
+	$(AWS) ec2 describe-subnets --region $(AWS_REGION) --subnet-ids $(subst $(comma),$(space),$(PUBLIC_SUBNET_IDS)) >$(NULL_DEVICE)
+
+deploy-infra: validate-network-parameters
 	$(AWS) cloudformation deploy --region $(AWS_REGION) --template-file infra/cloudformation.yaml --stack-name $(STACK_NAME) --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset --parameter-overrides EnvironmentName=$(ENVIRONMENT_NAME) VpcId=$(VPC_ID) PublicSubnetIds=$(PUBLIC_SUBNET_IDS) OnboardServiceImageUri=$(ONBOARD_SERVICE_IMAGE_URI) CustomerManagementServiceImageUri=$(CUSTOMER_MANAGEMENT_IMAGE_URI) AccountManagementServiceImageUri=$(ACCOUNT_MANAGEMENT_IMAGE_URI) $(DEPLOY_INFRA_ON_FAILURE)
 
-deploy-production:
+deploy-production: validate-network-parameters
 	$(MAKE) docker-push
 	$(MAKE) deploy-infra
 

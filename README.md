@@ -164,4 +164,11 @@ Deploy only the infrastructure with already-built image URIs:
 make deploy-infra AWS_ACCOUNT_ID=123456789012 VPC_ID=vpc-xxxxxxxx PUBLIC_SUBNET_IDS=subnet-aaaaaaaa,subnet-bbbbbbbb
 ```
 
+The deploy targets validate that `VPC_ID` and `PUBLIC_SUBNET_IDS` exist in `AWS_REGION` before starting CloudFormation. If an initial stack creation failed and the stack is in `ROLLBACK_COMPLETE`, delete the failed stack record before retrying:
+
+```sh
+aws cloudformation delete-stack --region ap-southeast-1 --stack-name card-onboarding-services-prod
+aws cloudformation wait stack-delete-complete --region ap-southeast-1 --stack-name card-onboarding-services-prod
+```
+
 See `infra/README.md` for CloudFormation parameters and required AWS permissions.
