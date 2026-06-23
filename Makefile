@@ -91,7 +91,7 @@ ecr-login:
 	$(call require,AWS_ACCOUNT_ID)
 	$(AWS) ecr get-login-password --region $(AWS_REGION) | $(DOCKER) login --username AWS --password-stdin $(ECR_REGISTRY)
 
-docker-tag:
+docker-tag: docker-build
 	$(call require,AWS_ACCOUNT_ID)
 	$(DOCKER) tag $(IMAGE_PREFIX)/account-management-service:latest $(ACCOUNT_MANAGEMENT_IMAGE_URI)
 	$(DOCKER) tag $(IMAGE_PREFIX)/customer-management-service:latest $(CUSTOMER_MANAGEMENT_IMAGE_URI)
@@ -108,7 +108,6 @@ deploy-infra:
 	$(AWS) cloudformation deploy --region $(AWS_REGION) --template-file infra/cloudformation.yaml --stack-name $(STACK_NAME) --capabilities CAPABILITY_NAMED_IAM --parameter-overrides EnvironmentName=$(ENVIRONMENT_NAME) VpcId=$(VPC_ID) PublicSubnetIds=$(PUBLIC_SUBNET_IDS) OnboardServiceImageUri=$(ONBOARD_SERVICE_IMAGE_URI) CustomerManagementServiceImageUri=$(CUSTOMER_MANAGEMENT_IMAGE_URI) AccountManagementServiceImageUri=$(ACCOUNT_MANAGEMENT_IMAGE_URI)
 
 deploy-production:
-	$(MAKE) docker-build
 	$(MAKE) docker-push
 	$(MAKE) deploy-infra
 

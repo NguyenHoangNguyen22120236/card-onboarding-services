@@ -78,15 +78,10 @@ steps:
 
   - wait
 
-  - label: ":docker: docker build"
-    key: "docker-build"
-    command: "make docker-build"
-    depends_on: "build"
-
   - label: ":rocket: deploy production"
     key: "deploy-production"
     command: "make deploy-production"
-    depends_on: "docker-build"
+    depends_on: "build"
     branches: "main"
     secrets:
       - AWS_ACCESS_KEY_ID
