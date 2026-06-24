@@ -40,6 +40,7 @@ func (s *DynamoDBAccountDetailsStore) GetByCustomerID(ctx context.Context, custo
 func (s *DynamoDBAccountDetailsStore) Save(ctx context.Context, details entity.AccountDetails) error {
 	item, err := marshalAccountDetailsItem(details)
 	if err != nil {
+		logDBWriteFailed("account_details_save", s.tableName, details.CustomerID, err)
 		return err
 	}
 
@@ -47,12 +48,16 @@ func (s *DynamoDBAccountDetailsStore) Save(ctx context.Context, details entity.A
 		TableName: aws.String(s.tableName),
 		Item:      item,
 	})
+	if err != nil {
+		logDBWriteFailed("account_details_save", s.tableName, details.CustomerID, err)
+	}
 	return err
 }
 
 func (s *DynamoDBAccountDetailsStore) Update(ctx context.Context, details entity.AccountDetails) error {
 	item, err := marshalAccountDetailsItem(details)
 	if err != nil {
+		logDBWriteFailed("account_details_update", s.tableName, details.CustomerID, err)
 		return err
 	}
 
@@ -62,7 +67,11 @@ func (s *DynamoDBAccountDetailsStore) Update(ctx context.Context, details entity
 		ConditionExpression: aws.String("attribute_exists(customerId)"),
 	})
 	if isConditionalCheckFailed(err) {
+		logDBWriteFailed("account_details_update", s.tableName, details.CustomerID, err)
 		return ErrNotFound
+	}
+	if err != nil {
+		logDBWriteFailed("account_details_update", s.tableName, details.CustomerID, err)
 	}
 	return err
 }

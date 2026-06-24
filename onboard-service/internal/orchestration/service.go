@@ -11,6 +11,7 @@ import (
 	customerapi "github.com/NguyenHoangNguyen22120236/card-onboarding-services/customer-management-service/pkg/customer"
 	"github.com/NguyenHoangNguyen22120236/card-onboarding-services/onboard-service/internal/client"
 	"github.com/NguyenHoangNguyen22120236/card-onboarding-services/onboard-service/internal/entity"
+	"github.com/NguyenHoangNguyen22120236/card-onboarding-services/onboard-service/internal/observability"
 	"github.com/NguyenHoangNguyen22120236/card-onboarding-services/onboard-service/internal/store"
 	api "github.com/NguyenHoangNguyen22120236/card-onboarding-services/onboard-service/pkg/onboard"
 	openapi_types "github.com/oapi-codegen/runtime/types"
@@ -55,6 +56,9 @@ func (s *service) OnboardCard(ctx context.Context, req entity.OnboardingRequest)
 	status, newStatus, err := s.loadOrCreateStatus(ctx, req)
 	if err != nil {
 		return api.OnboardCardResponse{}, err
+	}
+	if !newStatus && !isCompleted(status) {
+		observability.LogCount(observability.MetricResumeCount, metricFields(req, "resume", "used"))
 	}
 
 	if isCompleted(status) {
@@ -131,6 +135,7 @@ func (s *service) registerCustomer(ctx context.Context, req entity.OnboardingReq
 		HolderName:    req.HolderName,
 	})
 	if err != nil {
+		observability.LogCount(observability.MetricCustomerRegisterFailedCount, metricFields(req, "customer_register", "failed"))
 		status.OverallStatus = entity.StatusFailed
 		status.CustomerRegistrationStatus = entity.StatusFailed
 		status.CustomerRegistrationMessage = err.Error()
@@ -148,6 +153,7 @@ func (s *service) registerCustomer(ctx context.Context, req entity.OnboardingReq
 		Email:          req.Email,
 	}
 	if err := s.upsertAccountDetails(ctx, details); err != nil {
+		observability.LogCount(observability.MetricCustomerRegisterFailedCount, metricFields(req, "customer_register", "failed"))
 		return status, err
 	}
 
@@ -156,15 +162,18 @@ func (s *service) registerCustomer(ctx context.Context, req entity.OnboardingReq
 	status.InterestDetailsStatus = entity.StatusInProgress
 	status.UpdatedAt = time.Now().UTC()
 	if err := s.statusStore.Update(ctx, status); err != nil {
+		observability.LogCount(observability.MetricCustomerRegisterFailedCount, metricFields(req, "customer_register", "failed"))
 		return status, err
 	}
 
+	observability.LogCount(observability.MetricCustomerRegisterSuccessCount, metricFields(req, "customer_register", "success"))
 	return status, nil
 }
 
 func (s *service) fetchInterestDetails(ctx context.Context, req entity.OnboardingRequest, status entity.RequestStatus) (entity.RequestStatus, error) {
 	resp, err := s.accountClient.GetInterestDetails(ctx, req.CustomerID, req.CorrelationID)
 	if err != nil {
+		observability.LogCount(observability.MetricInterestDetailsFailedCount, metricFields(req, "interest_details", "failed"))
 		status.OverallStatus = entity.StatusFailed
 		status.InterestDetailsStatus = entity.StatusFailed
 		status.InterestDetailsMessage = err.Error()
@@ -176,6 +185,7 @@ func (s *service) fetchInterestDetails(ctx context.Context, req entity.Onboardin
 	}
 
 	if err := s.applyInterestDetails(ctx, req.CustomerID, resp); err != nil {
+		observability.LogCount(observability.MetricInterestDetailsFailedCount, metricFields(req, "interest_details", "failed"))
 		return status, err
 	}
 
@@ -184,9 +194,11 @@ func (s *service) fetchInterestDetails(ctx context.Context, req entity.Onboardin
 	status.AccountOnboardingStatus = entity.StatusInProgress
 	status.UpdatedAt = time.Now().UTC()
 	if err := s.statusStore.Update(ctx, status); err != nil {
+		observability.LogCount(observability.MetricInterestDetailsFailedCount, metricFields(req, "interest_details", "failed"))
 		return status, err
 	}
 
+	observability.LogCount(observability.MetricInterestDetailsSuccessCount, metricFields(req, "interest_details", "success"))
 	return status, nil
 }
 
@@ -306,4 +318,17 @@ func maskCardNumber(cardNumber string) string {
 	}
 
 	return strings.Repeat("*", len(cardNumber)-4) + cardNumber[len(cardNumber)-4:]
+}
+
+func metricFields(req entity.OnboardingRequest, step string, status string) observability.Fields {
+	fields := observability.NewFields()
+	fields.CorrelationID = req.CorrelationID
+	fields.JobID = req.JobID
+	fields.RecordID = req.RecordID
+	fields.CustomerID = req.CustomerID
+	fields.SourceFile = req.SourceFile
+	fields.RowNumber = int(req.RowNumber)
+	fields.Step = step
+	fields.Status = status
+	return fields
 }

@@ -301,6 +301,8 @@ Resources:
           Environment:
             - Name: SERVER_ADDRESS
               Value: !Sub ":${CustomerManagementServicePort}"
+            - Name: ENVIRONMENT_NAME
+              Value: !Ref EnvironmentName
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -328,6 +330,8 @@ Resources:
           Environment:
             - Name: SERVER_ADDRESS
               Value: !Sub ":${AccountManagementServicePort}"
+            - Name: ENVIRONMENT_NAME
+              Value: !Ref EnvironmentName
           LogConfiguration:
             LogDriver: awslogs
             Options:
@@ -356,6 +360,8 @@ Resources:
           Environment:
             - Name: SERVER_ADDRESS
               Value: !Sub ":${OnboardServicePort}"
+            - Name: ENVIRONMENT_NAME
+              Value: !Ref EnvironmentName
             - Name: CUSTOMER_MANAGEMENT_BASE_URL
               Value: !Sub "http://${LoadBalancer.DNSName}:${CustomerManagementServicePort}"
             - Name: ACCOUNT_MANAGEMENT_BASE_URL

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/NguyenHoangNguyen22120236/card-onboarding-services/onboard-service/internal/entity"
+	"github.com/NguyenHoangNguyen22120236/card-onboarding-services/onboard-service/internal/observability"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
@@ -46,6 +47,7 @@ func (s *DynamoDBRequestStatusStore) GetByCustomerID(ctx context.Context, custom
 func (s *DynamoDBRequestStatusStore) Save(ctx context.Context, status entity.RequestStatus) error {
 	item, err := marshalRequestStatusItem(status)
 	if err != nil {
+		logDBWriteFailed("request_status_save", s.tableName, status.CustomerID, err)
 		return err
 	}
 
@@ -53,12 +55,16 @@ func (s *DynamoDBRequestStatusStore) Save(ctx context.Context, status entity.Req
 		TableName: aws.String(s.tableName),
 		Item:      item,
 	})
+	if err != nil {
+		logDBWriteFailed("request_status_save", s.tableName, status.CustomerID, err)
+	}
 	return err
 }
 
 func (s *DynamoDBRequestStatusStore) Update(ctx context.Context, status entity.RequestStatus) error {
 	item, err := marshalRequestStatusItem(status)
 	if err != nil {
+		logDBWriteFailed("request_status_update", s.tableName, status.CustomerID, err)
 		return err
 	}
 
@@ -68,7 +74,11 @@ func (s *DynamoDBRequestStatusStore) Update(ctx context.Context, status entity.R
 		ConditionExpression: aws.String("attribute_exists(customerId)"),
 	})
 	if isConditionalCheckFailed(err) {
+		logDBWriteFailed("request_status_update", s.tableName, status.CustomerID, err)
 		return ErrNotFound
+	}
+	if err != nil {
+		logDBWriteFailed("request_status_update", s.tableName, status.CustomerID, err)
 	}
 	return err
 }
@@ -92,4 +102,16 @@ func customerIDKey(customerID string) map[string]types.AttributeValue {
 func isConditionalCheckFailed(err error) bool {
 	var conditionalErr *types.ConditionalCheckFailedException
 	return errors.As(err, &conditionalErr)
+}
+
+func logDBWriteFailed(operation string, tableName string, customerID string, err error) {
+	fields := observability.NewFields()
+	fields.Operation = operation
+	fields.TableName = tableName
+	fields.CustomerID = customerID
+	if err != nil {
+		fields.ErrorMessage = err.Error()
+	}
+
+	observability.LogCount(observability.MetricDBWriteFailedCount, fields)
 }
